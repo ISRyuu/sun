@@ -5,6 +5,7 @@ import (
 	"log"
 	"path"
 
+	"fmt"
 	"io/ioutil"
 	"time"
 
@@ -130,13 +131,10 @@ func (sj *sunAuth) refreshToken(req *sunAuthRequest) {
 func (sj *sunAuth) initJwk() {
 	// load private key
 	bytes, error := ioutil.ReadFile(sj.Config.PrivKeyPath)
-	if error != nil {
-		log.Fatalf("can not load key: %s :: %v", sj.Config.PrivKeyPath, error)
-	}
+	fatal(error, fmt.Sprintf("can not load key: %s :: ", sj.Config.PrivKeyPath))
+
 	signKey, error := ParseRSAPrivateKeyFromPEM(bytes)
-	if error != nil {
-		log.Fatalf("cannot parse private key: %s :: %v", sj.Config.PrivKeyPath, error)
-	}
+	fatal(error, fmt.Sprintf("cannot parse private key: %s", sj.Config.PrivKeyPath))
 
 	// kid is the filename of the private keyfile
 	ext := path.Ext(sj.Config.PrivKeyPath)
@@ -147,21 +145,14 @@ func (sj *sunAuth) initJwk() {
 		jose.SigningKey{Algorithm: jose.RS256, Key: signKey},
 		(&jose.SignerOptions{}).WithType("JWT").WithHeader("kid", kid),
 	)
-
-	if error != nil {
-		log.Fatalf("cannot create signer :: %v", error)
-	}
+	fatal(error, "cannot create signer")	
 
 	// load public key
 	bytes, error = ioutil.ReadFile(sj.Config.PubKeyPath)
-	if error != nil {
-		log.Fatalf("can not load pub key: %s :: %v", sj.Config.PubKeyPath, error)
-	}
+	fatal(error, fmt.Sprintf("can not load pub key: %s", sj.Config.PubKeyPath))
 
 	pubKey, error := ParseRSAPublicKeyFromPEM(bytes)
-	if error != nil {
-		log.Fatalf("cannot parse public key: %s :: %v", sj.Config.PubKeyPath, error)
-	}
+	fatal(error, fmt.Sprintf("cannot parse public key: %s", sj.Config.PubKeyPath))
 
 	jwk := jose.JSONWebKey{
 		Key:       pubKey,
@@ -170,9 +161,7 @@ func (sj *sunAuth) initJwk() {
 	}
 
 	jwkJson, error := jwk.MarshalJSON()
-	if error != nil {
-		log.Fatalf("cannot marshal jwk :: %v", error)
-	}
+	fatal(error, "cannot marshal jwk")
 
 	sj.signer = signer
 	sj.jwk = jwkJson
@@ -184,7 +173,7 @@ func (sj *sunAuth) initJwk() {
 func (sj *sunAuth) Forever(addr string) {
 	sj.initJwk()
 	if err := fasthttp.ListenAndServe(addr, sj.router); err != nil {
-		log.Fatalln(err)
+		fatal(err, "cannot start server")
 	}
 }
 
