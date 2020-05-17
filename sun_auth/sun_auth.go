@@ -16,6 +16,7 @@ import (
 type SunAuthConfig struct {
 	PubKeyPath  string
 	PrivKeyPath string
+	Issuer      string
 }
 
 type sunAuth struct {
@@ -100,7 +101,7 @@ func (sj *sunAuth) fetchToken(req *sunAuthRequest) {
 
 	claims := &SunAuthClaims{
 		Claims: &jwt.Claims{
-			Issuer:   "sun_auth",
+			Issuer:   sj.Config.Issuer,
 			Audience: jwt.Audience{requestData.ClientId},
 			Expiry:   jwt.NewNumericDate(time.Now().Add(time.Minute * 5)),
 		},
@@ -193,6 +194,7 @@ func NewSunJwt() *sunAuth {
 		Config: SunAuthConfig{
 			PubKeyPath:  "keys/test.pub",
 			PrivKeyPath: "keys/test",
+			Issuer:      "sun-auth",
 		},
 	}
 }
