@@ -14,6 +14,12 @@ type sunAuthRequest struct {
 	startTime time.Time
 }
 
+type sunResponse struct {
+	Msg  string        `json:"msg"`
+	Code sunStatusCode `json:"code"`
+	Data interface{}   `json:"data,omitempty"`
+}
+
 // parser request data, unmarshal json
 func (req *sunAuthRequest) parseRequestData(v interface{}) error {
 	error := json.Unmarshal(req.ctx.Request.Body(), v)
