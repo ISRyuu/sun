@@ -145,7 +145,7 @@ func (sj *sunAuth) initJwk() {
 		jose.SigningKey{Algorithm: jose.RS256, Key: signKey},
 		(&jose.SignerOptions{}).WithType("JWT").WithHeader("kid", kid),
 	)
-	fatal(error, "cannot create signer")	
+	fatal(error, "cannot create signer")
 
 	// load public key
 	bytes, error = ioutil.ReadFile(sj.Config.PubKeyPath)
@@ -171,6 +171,8 @@ func (sj *sunAuth) initJwk() {
 
 // run server
 func (sj *sunAuth) Forever(addr string) {
+	sc := &sunAccount{}
+	sc.connectDB("postgres://Kevin:1997@localhost:5432/sun_account?sslmode=disable")
 	sj.initJwk()
 	if err := fasthttp.ListenAndServe(addr, sj.router); err != nil {
 		fatal(err, "cannot start server")
