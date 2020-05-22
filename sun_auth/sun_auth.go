@@ -18,40 +18,45 @@ type SunAuthConfig struct {
 	PubKeyPath  string
 	PrivKeyPath string
 	Issuer      string
+	DBUrl       string
 }
 
 type sunAuth struct {
 	signer jose.Signer
 	jwk    []byte
+	*sunAccount
+
 	Config SunAuthConfig
 }
 
-// project
-type sunAuthProject struct {
-	ClientId string
-	Secret   string
+type sunRequestProject struct {
+	ProjectId     string
+	ProjectSecret string
 }
 
 type fetchTokenRequest struct {
-	sunAuthProject
+	sunRequestProject
+	Username string
+	UserPass string
 }
 
 type refreshTokenRequest struct {
-	sunAuthProject
+	sunRequestProject
 	RefreshToken string
 }
 
-type SunAuthCustomInfo struct {
+type sunAuthCustomInfo struct {
 	OpenId string
 }
 
-type SunAuthClaims struct {
+type sunAuthClaims struct {
 	*jwt.Claims
-	SunAuthCustomInfo
+	*sunAuthCustomInfo
 }
 
-type SunTokenResponse struct {
-	Token string `json:"token"`
+type sunTokenResponse struct {
+	Token  string
+	OpenId string
 }
 
 func (sj *sunAuth) router(ctx *fasthttp.RequestCtx) {
@@ -100,13 +105,13 @@ func (sj *sunAuth) fetchToken(req *sunAuthRequest) {
 		return
 	}
 
-	claims := &SunAuthClaims{
+	claims := &sunAuthClaims{
 		Claims: &jwt.Claims{
 			Issuer:   sj.Config.Issuer,
-			Audience: jwt.Audience{requestData.ClientId},
+			Audience: jwt.Audience{requestData.ProjectId},
 			Expiry:   jwt.NewNumericDate(time.Now().Add(time.Minute * 5)),
 		},
-		SunAuthCustomInfo: SunAuthCustomInfo{
+		sunAuthCustomInfo: &sunAuthCustomInfo{
 			OpenId: "test_openid",
 		},
 	}
@@ -118,9 +123,13 @@ func (sj *sunAuth) fetchToken(req *sunAuthRequest) {
 		return
 	}
 
-	req.responseOK(&SunTokenResponse{
-		Token: sign,
+	req.responseOK(&sunTokenResponse{
+		Token:  sign,
+		OpenId: "test_openid",
 	})
+}
+
+func (sj *sunAuth) NewAccount() {
 }
 
 // refresh token
@@ -171,8 +180,9 @@ func (sj *sunAuth) initJwk() {
 
 // run server
 func (sj *sunAuth) Forever(addr string) {
-	sc := &sunAccount{}
-	sc.connectDB("postgres://Kevin:1997@localhost:5432/sun_account?sslmode=disable")
+	sc := NewSunAccount(sj.Config.DBUrl)
+	sc.InitDB()
+	sj.sunAccount = sc
 	sj.initJwk()
 	if err := fasthttp.ListenAndServe(addr, sj.router); err != nil {
 		fatal(err, "cannot start server")
@@ -186,6 +196,7 @@ func NewSunJwt() *sunAuth {
 			PubKeyPath:  "keys/test.pub",
 			PrivKeyPath: "keys/test",
 			Issuer:      "sun-auth",
+			DBUrl:       "postgres://Kevin:1997@localhost:5432/sun_account?sslmode=disable",
 		},
 	}
 }
