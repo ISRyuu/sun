@@ -10,9 +10,9 @@ import (
 
 type User struct {
 	Id        string `pg:"default:gen_random_uuid(),pk"`
-	Username  string `pg:",unique,type:varchar(16)"`
+	Username  string `pg:",unique:idx_username_projectid,type:varchar(16),notnull"`
 	Password  string `pg:",notnull"`
-	ProjectId string `pg:",type:varchar(16),on_delete:CASCADE"`
+	ProjectId string `pg:",unique:idx_username_projectid,type:varchar(16),on_delete:CASCADE"`
 	Project   *Project
 }
 

@@ -10,8 +10,8 @@ const (
 	SunOK sunStatusCode = iota
 	SunBadRequest
 	ServerError
+	BadRequest
 )
-
 
 func fatal(err error, msg string) {
 	if err != nil {

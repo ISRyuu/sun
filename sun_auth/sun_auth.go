@@ -2,9 +2,11 @@
 package sun_auth
 
 import (
+	"encoding/hex"
 	"log"
 	"path"
 
+	"crypto/sha256"
 	"fmt"
 	"io/ioutil"
 	"time"
@@ -22,27 +24,11 @@ type SunAuthConfig struct {
 }
 
 type sunAuth struct {
-	signer jose.Signer
-	jwk    []byte
-	*sunAccount
+	signer     jose.Signer
+	jwk        []byte
+	sunAccount *sunAccount
 
 	Config SunAuthConfig
-}
-
-type sunRequestProject struct {
-	ProjectId     string
-	ProjectSecret string
-}
-
-type fetchTokenRequest struct {
-	sunRequestProject
-	Username string
-	UserPass string
-}
-
-type refreshTokenRequest struct {
-	sunRequestProject
-	RefreshToken string
 }
 
 type sunAuthCustomInfo struct {
@@ -68,8 +54,11 @@ func (sj *sunAuth) router(ctx *fasthttp.RequestCtx) {
 
 	switch string(request.ctx.Path()) {
 
+	case "/create_project":
+		sj.createProject(request)
+
 	case "/register":
-		sj.fetchJwk(request)
+		sj.register(request)
 
 	case "/jwk":
 		sj.fetchJwk(request)
@@ -93,6 +82,69 @@ func (sj *sunAuth) router(ctx *fasthttp.RequestCtx) {
 	)
 }
 
+// create new project
+func (sj *sunAuth) createProject(req *sunAuthRequest) {
+	requestData := &sunNewProjectRequest{}
+	if req.parseRequestData(requestData) != nil {
+		return
+	}
+
+	if p, _ := sj.sunAccount.GetProjectByPid(requestData.ProjectId); p != nil {
+		req.responseBadRequest("project already exists")
+		return
+	}
+
+	proj := &Project{
+		ProjectId:   requestData.ProjectId,
+		ProjectName: requestData.ProjectName,
+		Secret:      RandomPassword(32),
+	}
+	error := sj.sunAccount.NewProject(proj)
+
+	if error != nil {
+		req.responseBadRequest("invalid request")
+		log.Printf("cannot create project: %v", error)
+		return
+	}
+	req.responseOK(proj)
+	log.Printf("project has been created: %v", proj)
+}
+
+// register new user
+func (sj *sunAuth) register(req *sunAuthRequest) {
+	requestData := &sunUserRequest{}
+	if req.parseRequestData(requestData) != nil {
+		return
+	}
+
+	proj, err := sj.sunAccount.GetProjectByPid(requestData.ProjectId)
+	if err != nil || proj.Secret != requestData.ProjectSecret {
+		req.responseBadRequest("wrong project info")
+		log.Printf("wrong project info :: %v", err)
+		return
+	}
+
+	user := &User{
+		ProjectId: requestData.ProjectId,
+		Username:  requestData.Username,
+		Id:        GenUUID(),
+	}
+
+	sha := sha256.New()
+	sha.Write([]byte(user.Id + requestData.UserPass))
+	user.Password = hex.EncodeToString(sha.Sum(nil))
+
+	err = sj.sunAccount.NewUser(user)
+	if err != nil {
+		req.responseBadRequest("cannot create user")
+		log.Printf("cannot create user :: %v", err)
+		return
+	}
+
+	req.responseOK(nil)
+	log.Printf("new user has been created, uuid: %s", user.Id)
+}
+
 // fetch JWK
 func (sj *sunAuth) fetchJwk(req *sunAuthRequest) {
 	req.ctx.SetBody(sj.jwk)
@@ -100,7 +152,7 @@ func (sj *sunAuth) fetchJwk(req *sunAuthRequest) {
 
 // fetch token
 func (sj *sunAuth) fetchToken(req *sunAuthRequest) {
-	requestData := &fetchTokenRequest{}
+	requestData := &sunUserRequest{}
 	if req.parseRequestData(requestData) != nil {
 		return
 	}
