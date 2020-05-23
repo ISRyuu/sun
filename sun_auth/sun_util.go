@@ -2,8 +2,11 @@ package sun_auth
 
 import (
 	"bytes"
+	"encoding/hex"
 	"math/rand"
 	"time"
+
+	"crypto/sha256"
 
 	uuid "github.com/satori/go.uuid"
 )
@@ -21,4 +24,10 @@ func RandomPassword(length int) string {
 
 func GenUUID() string {
 	return uuid.NewV4().String()
+}
+
+func PasswordHash(cleartext string, salt string) string {
+	sha := sha256.New()
+	sha.Write([]byte(salt + cleartext))
+	return hex.EncodeToString(sha.Sum(nil))
 }

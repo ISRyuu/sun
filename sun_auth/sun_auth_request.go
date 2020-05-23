@@ -79,7 +79,7 @@ type sunRefreshTokenRequest struct {
 }
 
 func (r *sunRefreshTokenRequest) Validate() error {
-	return nil
+	return r.sunProjectRequest.Validate()
 }
 
 // request structure END
@@ -126,7 +126,7 @@ func (req *sunAuthRequest) responseServerError(error string) {
 	req.ctx.SetBody(responseData)
 }
 
-// send 400 server error with additional error info
+// send 400 error with additional error info
 func (req *sunAuthRequest) responseBadRequest(error string) {
 	response := sunResponse{
 		Msg:  error,
@@ -134,5 +134,16 @@ func (req *sunAuthRequest) responseBadRequest(error string) {
 	}
 	responseData, _ := json.Marshal(response)
 	req.ctx.SetStatusCode(fasthttp.StatusBadRequest)
+	req.ctx.SetBody(responseData)
+}
+
+// send 401 error with additional error info
+func (req *sunAuthRequest) responseUnauthorized(error string) {
+	response := sunResponse{
+		Msg:  error,
+		Code: BadRequest,
+	}
+	responseData, _ := json.Marshal(response)
+	req.ctx.SetStatusCode(fasthttp.StatusUnauthorized)
 	req.ctx.SetBody(responseData)
 }

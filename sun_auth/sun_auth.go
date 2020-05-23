@@ -2,11 +2,9 @@
 package sun_auth
 
 import (
-	"encoding/hex"
 	"log"
 	"path"
 
-	"crypto/sha256"
 	"fmt"
 	"io/ioutil"
 	"time"
@@ -130,9 +128,7 @@ func (sj *sunAuth) register(req *sunAuthRequest) {
 		Id:        GenUUID(),
 	}
 
-	sha := sha256.New()
-	sha.Write([]byte(user.Id + requestData.UserPass))
-	user.Password = hex.EncodeToString(sha.Sum(nil))
+	user.Password = PasswordHash(user.Password, user.Id)
 
 	err = sj.sunAccount.NewUser(user)
 	if err != nil {
@@ -156,6 +152,26 @@ func (sj *sunAuth) fetchToken(req *sunAuthRequest) {
 	if req.parseRequestData(requestData) != nil {
 		return
 	}
+	_, error := sj.sunAccount.AuthProject(&Project{
+		ProjectId: requestData.ProjectId,
+		Secret:    requestData.ProjectSecret,
+	})
+
+	if error != nil {
+		req.responseBadRequest(error.Error())
+		return
+	}
+
+	user, error := sj.sunAccount.AuthUser(&User{
+		Username:  requestData.Username,
+		ProjectId: requestData.ProjectId,
+		Password:  requestData.UserPass,
+	})
+
+	if error != nil {
+		req.responseUnauthorized(error.Error())
+		return
+	}
 
 	claims := &sunAuthClaims{
 		Claims: &jwt.Claims{
@@ -164,7 +180,7 @@ func (sj *sunAuth) fetchToken(req *sunAuthRequest) {
 			Expiry:   jwt.NewNumericDate(time.Now().Add(time.Minute * 5)),
 		},
 		sunAuthCustomInfo: &sunAuthCustomInfo{
-			OpenId: "test_openid",
+			OpenId: user.Id,
 		},
 	}
 
@@ -177,7 +193,7 @@ func (sj *sunAuth) fetchToken(req *sunAuthRequest) {
 
 	req.responseOK(&sunTokenResponse{
 		Token:  sign,
-		OpenId: "test_openid",
+		OpenId: user.Id,
 	})
 }
 

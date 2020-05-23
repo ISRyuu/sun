@@ -38,6 +38,26 @@ func (sa *sunAccount) NewUser(user *User) error {
 	return sa.db.Insert(user)
 }
 
+// authenticate user by username and password, return user on success
+func (sa *sunAccount) AuthUser(user *User) (*User, error) {
+	tuser := &User{}
+	err := sa.db.Model(tuser).
+		Where("username = ? and project_id = ?", user.Username, user.ProjectId).
+		Select()
+	if err != nil {
+		log.Printf("error authuser :: %v", err)
+		return nil, fmt.Errorf("no such user")
+	}
+
+	passwd := PasswordHash(user.Password, tuser.Id)
+
+	if tuser.Password != passwd {
+		return nil, fmt.Errorf("password not match ")
+	}
+
+	return tuser, nil
+}
+
 func (sa *sunAccount) GetUserById(id string) (*User, error) {
 
 	user := &User{Id: id}
@@ -78,6 +98,24 @@ func (sa *sunAccount) GetProjectByPid(pid string) (*Project, error) {
 	}
 
 	return proj, nil
+}
+
+// check ProjectId and ProjectSecret
+func (sa *sunAccount) AuthProject(proj *Project) (*Project, error) {
+	tproj := &Project{
+		ProjectId: proj.ProjectId,
+	}
+	error := sa.db.Select(tproj)
+	if error != nil {
+		log.Printf("error select project :: %v", error)
+		return nil, fmt.Errorf("no such project")
+	}
+
+	if tproj.Secret != proj.Secret {
+		return nil, fmt.Errorf("project secret not match")
+	}
+
+	return tproj, nil
 }
 
 func (sa *sunAccount) UpdateProject(proj *Project) error {
