@@ -34,7 +34,10 @@ func NewSunAccount(dbURL string) *sunAccount {
 	}
 }
 
+// create new user, this function will replace the Password field in parameter `user`
+// with the hashed one (the one which is stored in database)
 func (sa *sunAccount) NewUser(user *User) error {
+	user.Password = PasswordHash(user.Password, user.Id)
 	return sa.db.Insert(user)
 }
 
@@ -48,9 +51,7 @@ func (sa *sunAccount) AuthUser(user *User) (*User, error) {
 		log.Printf("error authuser :: %v", err)
 		return nil, fmt.Errorf("no such user")
 	}
-
 	passwd := PasswordHash(user.Password, tuser.Id)
-
 	if tuser.Password != passwd {
 		return nil, fmt.Errorf("password not match ")
 	}

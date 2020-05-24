@@ -122,13 +122,13 @@ func (sj *sunAuth) register(req *sunAuthRequest) {
 		return
 	}
 
+	// password will be replaced with the hashed one after calling `NewUser`
 	user := &User{
 		ProjectId: requestData.ProjectId,
 		Username:  requestData.Username,
+		Password:  requestData.UserPass,
 		Id:        GenUUID(),
 	}
-
-	user.Password = PasswordHash(user.Password, user.Id)
 
 	err = sj.sunAccount.NewUser(user)
 	if err != nil {
